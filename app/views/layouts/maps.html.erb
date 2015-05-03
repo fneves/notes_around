@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= content_for?(:title) ? yield(:title) : "Notes Around" %></title>
+  <meta name="description" content="<%= content_for?(:description) ? yield(:description) : "Notes Around" %>">
+  <%= stylesheet_link_tag 'application', media: 'all', 'data-turbolinks-track' => true %>
+  <%= javascript_include_tag 'application', 'data-turbolinks-track' => true %>
+  <%= javascript_include_tag 'http://maps.googleapis.com/maps/api/js?sensor=false&key=AIzaSyCs0Rb_qa6ZC98r1EGFCmAJogZnY74lqH8' %>
+  <%= csrf_meta_tags %>
+</head>
+<body>
+<header>
+  <%= render 'layouts/navigation' %>
+</header>
+<main role="main" style="padding-left: 0">
+  <%= render 'layouts/messages' %>
+
+  <div class="col-sm-9" style="padding-left: 0">
+    <%= react_component 'NotesAroundMap', {}, :div%>
+  </div>
+  <div class="col-sm-2">
+    <%= react_component 'NoteBox', {}, :div%>
+  </div>
+</main>
+</body>
+</html>
