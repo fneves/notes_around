@@ -17,7 +17,9 @@ gem 'omniauth-google-oauth2'
 gem 'puma'
 gem 'pundit'
 gem 'modernizr-rails'
-gem 'tubesock'
+gem 'sse-rails-engine'
+gem 'pg'
+gem 'giphy'
 
 group :development do
   gem 'better_errors'
@@ -35,7 +37,6 @@ group :development, :test do
   gem 'pry-rescue'
   gem 'pry-byebug'
   gem 'rubocop'
-  gem 'sqlite3'
 end
 group :production do
   gem 'pg'

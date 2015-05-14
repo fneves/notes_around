@@ -1,6 +1,5 @@
 class NotesController < ApplicationController
   before_action :find_note, only: [:show]
-  include Tubesock::Hijack
 
   rescue_from ActiveRecord::RecordNotFound do
     render json: { errors: ["Could not find note with id #{params[:id]}"] }
@@ -9,7 +8,9 @@ class NotesController < ApplicationController
   def create
     @note = Note.new(secure_params)
     if @note.save
-      render json: { note: @note }
+      render json: { note: @note}
+
+      SseRailsEngine.send_event('/notes/create', @note)
     else
       render json: { errors: @note.errors }, status: 400
     end
@@ -22,20 +23,6 @@ class NotesController < ApplicationController
   def near
     notes = Note.within(5, origin: origin).includes(:user)
     render json: { notes: notes }
-  end
-
-  def live
-    hijack do |tubesock|
-      tubesock.onopen do
-        tubesock.send_data "Hello, friend"
-      end
-
-      tubesock.onmessage do |data|
-        Rails.logger.info("received #{data}")
-        @note = Note.new(JSON.parse(data))
-        tubesock.send_data(data) if @note.save
-      end
-    end
   end
 
   private

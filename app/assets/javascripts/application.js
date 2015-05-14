@@ -12,6 +12,7 @@
 //
 //= require jquery
 //= require jquery_ujs
+//= require oms/oms.js
 //= require bootstrap-sprockets
 //= require modernizr
 //= require react

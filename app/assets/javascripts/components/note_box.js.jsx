@@ -1,6 +1,5 @@
 var NoteBox = React.createClass({
   mixins: [LocationMixin],
-  ws: WS,
 
   getDefaultProps: function() {
     return {
@@ -30,13 +29,21 @@ var NoteBox = React.createClass({
   },
 
   createNote: function(event) {
-    var toSend = JSON.stringify({
-      body: this.state.note,
-      lat: this.props.coords.lat,
-      lng: this.props.coords.lng
+    var self = this;
+    var toSend = {
+      note: {
+        body: this.state.note,
+        lat: this.props.coords.lat,
+        lng: this.props.coords.lng
+      }
+    };
+
+    $.post('/notes.json', toSend).success(function(data) {
+      window.console.log('Success ' + data);
+      self.setState({ note: '' });
+    }).error(function(data) {
+      window.console.log('Error ' + data);
     });
-    this.ws.send(toSend);
-    this.setState({ note: '' });
   },
 
   render: function() {

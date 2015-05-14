@@ -1,56 +1,20 @@
 // @jsx React.DOM
 
-WS = new WebSocket("ws://" + location.host + "/notes/live");
-
-var Marker = React.createClass({
-  render: function () {
-    return (<div class="InfoWindow">{ this.props.body }</div>);
-  }
-});
-
-var LocationMixin = {
-  location: function (lat, lng) {
-    return new google.maps.LatLng(lat, lng)
-  },
-
-  currentPosition: function(callback) {
-    if (Modernizr.geolocation) {
-      navigator.geolocation.getCurrentPosition(callback);
-    } else {
-      alert("Notes around only works with a browser that support geolocation!");
-    }
-  },
-
-  handleLocationUpdates: function(callback) {
-    if (Modernizr.geolocation) {
-      function errorHandler(err) {
-        if(err.code == 1) {
-          alert("Error: Access is denied!");
-        }else if( err.code == 2) {
-          alert("Error: Position is unavailable!");
-        }
-      }
-      // timeout at 60000 milliseconds (60 seconds)
-      var options = { timeout: 60000 };
-      navigator.geolocation.watchPosition(callback, errorHandler, options);
-    }else{
-      alert("Sorry, browser does not support geolocation!");
-    }
-  }
-};
+SSE = new EventSource('/sse');
 
 var NotesAroundMap = React.createClass({
   mixins: [LocationMixin],
   map: null,
-  ws: WS,
+  oms: null,
+  source: SSE,
   notes: [],
   currentInfoWindow: null,
 
   getDefaultProps: function() {
     return {
       coords: {
-        lat: -33,
-        lng:151
+        lat: 53.350140,
+        lng: -6.266155
       }
     }
   },
@@ -64,23 +28,30 @@ var NotesAroundMap = React.createClass({
 
   componentDidMount: function() {
     var self = this;
+    this.map = this.createMap();
+    google.maps.event.addListener(this.map, 'zoom_changed', this.handleZoomChange);
+    google.maps.event.addListener(this.map, 'dragend', this.handleDragEnd);
+
     if (Modernizr.geolocation) {
       navigator.geolocation.getCurrentPosition(function (position) {
         self.props.coords.lat = position.coords.latitude;
         self.props.coords.lng = position.coords.longitude;
-        self.map = self.createMap();
-        google.maps.event.addListener(self.map, 'zoom_changed', self.handleZoomChange);
-        google.maps.event.addListener(self.map, 'dragend', self.handleDragEnd);
+        self.map.setZoom(8);
+        self.map.panTo(self.currentLocation());
       });
     } else {
-      this.map = this.createMap();
-      google.maps.event.addListener(this.map, 'zoom_changed', this.handleZoomChange);
-      google.maps.event.addListener(this.map, 'dragend', this.handleDragEnd);
+      console.log('Browser is not supported! Please use a decent browser!')
     }
 
-    this.ws.onmessage = function (payload) {
-      self.displayNote(JSON.parse(payload.data));
-    };
+    $.getJSON('/notes/near.json', { lat: self.props.coords.lat, lng: self.props.coords.lng })
+     .done(function(data) {
+      self.updateCurrentNotes(data.notes);
+     });
+
+    this.source.addEventListener('/notes/create', function(e) {
+      self.displayNote(JSON.parse(e.data));
+    }, true);
+
   },
 
   createMap: function() {
@@ -88,53 +59,78 @@ var NotesAroundMap = React.createClass({
       zoom: 4,
       center: this.currentLocation()
     };
-    return new google.maps.Map(this.getDOMNode(), mapOptions)
+    var map = new google.maps.Map(this.getDOMNode(), mapOptions)
+    this.spiderify(map);
+    return map;
   },
 
-  createMarker: function(lat, lng) {
-    return new google.maps.Marker({
-      position: new google.maps.LatLng(lat, lng),
+  spiderify: function(map) {
+    var overlappingOptions = {
+      markersWontMove: true,
+      markersWontHide: true,
+      keepSpiderfied: true
+    };
+    this.oms = new OverlappingMarkerSpiderfier(map, overlappingOptions);
+    this.oms.addListener('click', this.displayInfoWindow);
+  },
+
+  createMarker: function(note) {
+    var marker = new google.maps.Marker({
+      position: new google.maps.LatLng(note.lat, note.lng),
       map: this.map
     });
+    marker.body = note.body;
+    marker.pic = note.pic;
+    return marker;
   },
 
-  createInfoWindow: function() {
-    var contentString = "<div class='InfoWindow'>I'm a Window that contains Info Yay</div>";
-    return new google.maps.InfoWindow({
-      map: this.map,
-      anchor: this.marker,
-      content: contentString
-    });
+  createInfoWindow: function(marker) {
+    var content = new InfoWindow({ note: marker }).render();
+    var iw = new google.maps.InfoWindow();
+    iw.setContent(React.renderToStaticMarkup(content));
+    return iw;
   },
 
   handleZoomChange: function() {
 
   },
 
+  updateCurrentNotes: function(newNotes) {
+    var oldNotes = this.notes.slice();
+    this.notes = [];
+    newNotes.forEach(this.displayNote);
+    if(oldNotes != null) {
+      oldNotes.forEach(this.destroyMarker);
+    }
+  },
+
   handleDragEnd: function() {
     console.log('dragEnd');
-    this.ws.publish('/notes', { message: 'Just Moved the map' });
   },
 
   currentLocation: function() {
-    return this.location(this.props.coords.lat, this.props.coords.lng)
+    return this.location(this.props.coords.lat, this.props.coords.lng);
+  },
+
+  destroyMarker: function(note) {
+    oms.removeMarker(note);
+    note.setMap(null);
+  },
+
+  displayInfoWindow: function(marker, e) {
+    var infoWindow = this.createInfoWindow(marker);
+    infoWindow.open(this.map, marker);
+    if(this.currentInfoWindow) {
+      this.currentInfoWindow.close();
+      this.currentInfoWindow = infoWindow;
+    }
+    this.map.panTo(marker.getPosition());
   },
 
   displayNote: function(note) {
     var self = this;
-    var gmarker = this.createMarker(note.lat, note.lng);
-
-    var marker = new Marker({ body: note.body, gmarker: gmarker });
-    var infoWindow = new google.maps.InfoWindow({
-      content: React.renderToString(marker.render())
-    });
-
-    google.maps.event.addListener(gmarker, 'click', function() {
-      infoWindow.open(self.map, gmarker);
-      self.currentInfoWindow.close();
-      self.currentInfoWindow = infoWindow;
-    });
-
-    this.notes.push(marker)
+    var marker = this.createMarker(note);
+    this.oms.addMarker(marker);
+    this.notes.push(marker);
   }
 });

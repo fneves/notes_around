@@ -13,10 +13,14 @@
 
 ActiveRecord::Schema.define(version: 20150328211149) do
 
+  # These are extensions that must be enabled in order to support this database
+  enable_extension "plpgsql"
+
   create_table "notes", force: :cascade do |t|
     t.string  "body"
-    t.integer "lat"
-    t.integer "lng"
+    t.string  "pic"
+    t.float   "lat"
+    t.float   "lng"
     t.integer "user_id"
   end
 

@@ -9,7 +9,7 @@ Rails.application.routes.draw do
   resources :notes, only: [:create, :show, :destroy] do
     collection do
       get :near
-      get :live
     end
   end
+  mount SseRailsEngine::Engine, at: '/sse'
 end
