@@ -39,6 +39,7 @@ module NotesAround
     # server-side console.log, console.warn, and console.error messages will be replayed on the client
     # (you can set this to `true` in config/enviroments/development.rb to replay in development only)
     config.react.replay_console = false
+    config.maps_key='AIzaSyDaJ-uHI_W8vkr9Vb8J_NbNl99ME-KJNvo'
     config.autoload_paths << Rails.root.join('lib')
   end
 end
